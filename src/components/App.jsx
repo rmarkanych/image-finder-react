@@ -1,4 +1,4 @@
-import React from 'react';
+import { useEffect, useState } from 'react';
 import fetchPictures from '../services/pixabay-API';
 import Searchbar from './Searchbar/Searchbar';
 import ImageGallery from './ImageGallery/ImageGallery';
@@ -6,72 +6,61 @@ import Button from './Button/Button';
 import Modal from './Modal/Modal';
 import Loader from './Loader/Loader';
 
-class App extends React.Component {
-  state = {
-    isLoading: false,
-    query: '',
-    page: 1,
-    images: [],
-    isModalOpen: false,
-    modalImg: null,
-    tags: '',
-  };
-  changeQuery = value => {
-    this.setState({ query: value, page: 1 });
-  };
-  async componentDidUpdate(prevProps, prevState) {
-    if (
-      (prevState.query !== this.state.query ||
-        prevState.page !== this.state.page) &&
-      this.state.query.trim() !== ''
-    ) {
-      this.setState({ isLoading: true });
-      const newArr = await fetchPictures(
-        this.state.query,
-        this.state.page
-      ).catch(err => console.log(err));
+const App = () => {
+  const [images, setImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [tags, setTags] = useState('');
+  const [modalImg, setModalImg] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-      if (this.state.page !== 1) {
-        this.setState(prevState => ({
-          images: [...prevState.images, ...newArr],
-          isLoading: false,
-        }));
-      } else {
-        this.setState({ images: [...newArr], isLoading: false });
+  const changeQuery = value => {
+    setQuery(value);
+    setPage(1);
+  };
+
+  useEffect(() => {
+    if (query === '') return;
+    setIsLoading(true);
+    const fn = async (page, query) => {
+      try {
+        const newArr = await fetchPictures(query, page);
+        if (page === 1) {
+          setImages(newArr);
+        } else {
+          setImages(s => [...s, ...newArr]);
+        }
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setIsLoading(false);
       }
-    }
-  }
-  toggleModal = (modalImg, tags) => {
-    this.setState(prevState => ({
-      isModalOpen: !prevState.isModalOpen,
-      modalImg,
-      tags,
-    }));
+    };
+    fn(page, query);
+  }, [query, page]);
+
+  const toggleModal = (modalImg, tags) => {
+    setIsModalOpen(!isModalOpen);
+    setModalImg(modalImg);
+    setTags(tags);
   };
-  changePage = () => {
-    this.setState(prevState => ({ page: prevState.page + 1 }));
-  };
-  render() {
-    return (
-      <div>
-        <Searchbar changeQuery={this.changeQuery} />
-        {this.state.isLoading && <Loader />}
-        <ImageGallery
-          imageArray={this.state.images}
-          toggleModal={this.toggleModal}
-        />
-        {this.state.images.length > 2 && (
-          <Button btnTitle="Load more" changePage={this.changePage} />
-        )}
-        {this.state.isModalOpen && (
-          <Modal
-            toggleModal={this.toggleModal}
-            imgUrl={this.state.modalImg}
-            imgTag={this.state.tags}
-          />
-        )}
-      </div>
-    );
-  }
-}
+
+  const changePage = () => setPage(s => s + 1);
+
+  return (
+    <div>
+      <Searchbar changeQuery={changeQuery} />
+      {isLoading && <Loader />}
+      <ImageGallery imageArray={images} toggleModal={toggleModal} />
+      {images.length > 2 && (
+        <Button btnTitle="Load more" changePage={changePage} />
+      )}
+      {isModalOpen && (
+        <Modal toggleModal={toggleModal} imgUrl={modalImg} imgTag={tags} />
+      )}
+    </div>
+  );
+};
+
 export default App;
